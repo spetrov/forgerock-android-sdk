@@ -28,7 +28,12 @@ public class RootDeviceTest {
         RootDetector rootDetector = FRRootDetector.builder()
                 .detector(new BuildTagsDetector())
                 .build();
-        Assert.assertEquals(0.0, rootDetector.isRooted(context), 0.0001);
+        //Expect 1.0 on emulator
+        if (isEmulator()) {        
+            Assert.assertEquals(1.0, rootDetector.isRooted(context), 0.0001);
+        } else {
+            Assert.assertEquals(0.0, rootDetector.isRooted(context), 0.0001);
+        }
     }
 
     @Test
@@ -37,7 +42,7 @@ public class RootDeviceTest {
                 .detector(new DangerousPropertyDetector())
                 .build();
         //Expect 1.0 on emulator
-        if (isEmulator() && SDK_INT < 30) {
+        if (isEmulator()) {
             Assert.assertEquals(1.0, rootDetector.isRooted(context), 0.0001);
         } else {
             Assert.assertEquals(0.0, rootDetector.isRooted(context), 0.0001);
@@ -90,7 +95,7 @@ public class RootDeviceTest {
                 .detector(new RootProgramFileDetector())
                 .build();
         //expect 1.0 on emulator
-        if (isEmulator() && SDK_INT < 30) {
+        if (isEmulator()) {
             Assert.assertEquals(1.0, rootDetector.isRooted(context), 0.0001);
         } else {
             Assert.assertEquals(0.0, rootDetector.isRooted(context), 0.0001);
@@ -133,7 +138,12 @@ public class RootDeviceTest {
                 .detector(new RootRequiredAppDetector())
                 .detector(new BusyBoxProgramFileDetector())
                 .build();
-        Assert.assertEquals(0.0, rootDetector.isRooted(context), 0.0001);
+        //expect 1.0 on emulator
+        if (isEmulator()) {
+            Assert.assertEquals(1.0, rootDetector.isRooted(context), 0.0001);
+        } else {
+            Assert.assertEquals(0.0, rootDetector.isRooted(context), 0.0001);
+        }
     }
 
     @Test

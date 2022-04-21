@@ -1,0 +1,16 @@
+name: 'Prepare Device Farm Artifacts'
+on:
+  workflow_run:
+    workflows: ['Build and Test']
+    types: [completed]
+jobs:
+  on-success:
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - run: echo 'The triggering workflow passed'
+  on-failure:
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - run: echo 'The triggering workflow failed'
