@@ -1,8 +1,16 @@
-# Version 3.2.0
+## [Unreleased]
+#### Added
+- Support SSL Pinning [SDKS-80]
+- Restore SSO Token when it is out of sync with the SSO Token that bound with the Access Token [SDKS-1664]
+- SSO Token should be included in the header instead of request parameter for /authorize endpoint [SDKS-1670]
+- Support to broadcast logout event to clear application tokens when user logout the app [SDKS-1663]
+
+#### Fixed
+- Dispose AuthorizationService when no longer required [SDKS-1636]
 
 ## [3.2.0]
 #### Added
-- Google Sign-In Security Enhancement [SDKS-1252]
+- Google Sign-In Security Enhancement [SDKS-1255]
 - WebAuthn Registration & Authentication prompt not shown on second invocation on Single Activity App [SDKS-1297]
   
 #### Fixed
