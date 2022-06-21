@@ -1,0 +1,2 @@
+jdkVersion = "11"
+build = "gradlew build"
