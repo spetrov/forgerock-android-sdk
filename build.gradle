@@ -26,6 +26,11 @@ buildscript {
     }
 }
 
+plugins {
+    id('io.github.gradle-nexus.publish-plugin') version '1.1.0'
+    id('org.sonatype.gradle.plugins.scan') version '2.4.0'
+}
+
 allprojects {
     repositories {
         google()
@@ -33,6 +38,12 @@ allprojects {
         mavenCentral()
     }
 }
+
+ossIndexAudit {
+    username = project['username']
+    password = project['password']
+}
+
 
 task clean(type: Delete) {
     delete rootProject.buildDir
