@@ -40,10 +40,9 @@ allprojects {
 }
 
 ossIndexAudit {
-    username = project['username']
-    password = project['password']
+    username = System.properties['username']
+    password = System.properties['password']
 }
-
 
 task clean(type: Delete) {
     delete rootProject.buildDir

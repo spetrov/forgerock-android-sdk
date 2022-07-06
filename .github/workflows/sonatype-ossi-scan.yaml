@@ -35,7 +35,7 @@ jobs:
 
       # Execute Sonatype OSS Index scan
       - name: Execute Sonatype OSS Index scan
-        run: ./gradlew ossIndexAudit -Pusername=${{ secrets.SONATYPE_USERNAME }} -Ppassword=${{ secrets.SONATYPE_PASSWORD }} --no-daemon
+        run: ./gradlew ossIndexAudit -Dusername=${{ secrets.SONATYPE_USERNAME }} -Dpassword=${{ secrets.SONATYPE_PASSWORD }} --no-daemon
         
       # Send slack notification with result status
       - uses: 8398a7/action-slack@v3
