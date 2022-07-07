@@ -6,11 +6,11 @@ on:
     types: [opened, reopened, synchronize, edited]
     branches:
       - master
-      - develop
+      # - develop
   push:
     branches:
       - master
-      - develop
+      # - develop
 
 jobs:
   # Build and run unit tests
