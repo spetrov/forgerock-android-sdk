@@ -6,11 +6,11 @@ on:
     types: [opened, reopened, synchronize, edited]
     branches:
       - master
-      - develop
+      # - develop
   push:
     branches:
       - master
-      - develop
+      # - develop
 
 jobs:
   # Build and run unit tests
@@ -20,6 +20,7 @@ jobs:
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
+  # Run Sonatype OSS Index Scan
   sonatype-ossindex:
     name: Scan for open source vulnerabilities (Sonatype OSS Index)
     uses: ./.github/workflows/sonatype-ossi-scan.yaml
