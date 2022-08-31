@@ -34,7 +34,6 @@ jobs:
           initial_version: "0.0.0"
         id: get-latest-tag
 
-
       - run: |
           version=${{ inputs.version }}
           is_snapshot=false

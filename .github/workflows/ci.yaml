@@ -28,6 +28,16 @@ jobs:
       SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  
+  # Build and sign BitBar test artifacts (auth-debug-androidTest-signed.apk and forgerock-auth-debug-androidTest-signed.apk)
+  bitbar-prepare-artifacts:
+    name: Prepare device farm artifacts
+    uses: ./.github/workflows/bitbar-prepare-artifacts.yaml
+    needs: build-and-test
+    secrets:
+      SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+      SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
       
   
   # # Build and sign BitBar test artifacts (auth-debug-androidTest-signed.apk and forgerock-auth-debug-androidTest-signed.apk)
