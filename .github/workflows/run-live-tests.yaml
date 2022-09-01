@@ -1,6 +1,22 @@
 name: Run Live Tests
 on:
-  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      am-url:
+        description: The AM url to run live test cases against
+        type: string
+        required: true
+        default: https://openam-forgerrock-sdksteanant.forgeblocks.com/am
+      realm:
+        description: The AM realm to use
+        type: string
+        required: true
+        default: alpha
+      cookie-name:
+        description: The AM session cookie name
+        type: string
+        required: true
+        default: iPlanetDirectoryPro
   
 jobs:
   run-tests:
@@ -23,22 +39,57 @@ jobs:
           java-version: '11'
           cache: 'gradle'
 
-      # Execute forgerock-auth e2e tests
-      - name: Run forgerock-auth debug unit tests
-        run: ./gradlew :forgerock-auth:testDebugUnitTest --stacktrace --no-daemon
+      # Replace forgerock_url, forgerock_realm, and forgerock_cookie_name values in strings.xml
+      - name: Configure strings.xml
+        run: |
+          amURL=$(echo ${{ inputs.am-url }} | sed 's/\//\\\//g')
+          echo $amURL
+          sed -i -r "s/\(<string name=\"forgerock_url\".*>\).*\(<\/string>\)/\1$amURL\2/" "forgerock-auth/src/androidTest/res/values/strings.xml"
+          sed -i -r "s/\(<string name=\"forgerock_realm\".*>\).*\(<\/string>\)/\1${{ inputs.realm }}\2/" "forgerock-auth/src/androidTest/res/values/strings.xml"
+          sed -i -r "s/\(<string name=\"forgerock_cookie_name\".*>\).*\(<\/string>\)/\1${{ inputs.cookie-name }}\2/" "forgerock-auth/src/androidTest/res/values/strings.xml"
+          rm -rf forgerock-auth/src/androidTest/res/values/strings.xml-r
+          cat forgerock-auth/src/androidTest/res/values/strings.xml
 
-      # Publish test reports for the unit tests
+      # Prepare test emulator
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "Generated AVD snapshot for caching."
+
+      # Run the e2e tests on emulator
+      - name: Run e2e tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./gradlew -Pandroid.testInstrumentationRunnerArguments.package=org.forgerock.android.auth.callback,org.forgerock.android.auth.webauthn :forgerock-auth:connectedAndroidTest --stacktrace --no-daemon
+
+      # Publish test reports
       - name: Publish test results
         if: success() || failure()
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.5.0
         with:
-          name: Unit tests results
-          path: 'forgerock-auth/build/test-results/**/TEST-*.xml'
+          name: e2e tests results
+          path: 'forgerock-auth/build/outputs/androidTest-results/connected/TEST-*.xml'
           list-suites: 'all'
           list-tests: 'all'
           fail-on-error: 'true'
           reporter: java-junit
 
+      # Save the logcat logs as run artifact
+      - name: Upload logcat logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: Logcat-logs
+          path: forgerock-auth/build/outputs/androidTest-results/connected/**/logcat-org*.txt
+      
       # Send slack notification with result status
       - uses: 8398a7/action-slack@v3
         with:
