@@ -35,79 +35,81 @@ jobs:
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
-        run: echo "$GITHUB_CONTEXT"
+          GITHUB_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          echo "$GITHUB_CONTEXT"
+          echo "GITHUB_REF: $GITHUB_REF"
 
-      # # Clone the repo
-      # - name: Clone the repository
-      #   uses: actions/checkout@v3
-      #   with:
-      #     ref: ${{ github.event.pull_request.head.ref }}
-      #     repository: ${{ github.event.pull_request.head.repo.full_name }}
-      #     fetch-depth: 0
+      # Clone the repo
+      - name: Clone the repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          fetch-depth: 0
 
-      # # Setup JDK and cache and restore dependencies.
-      # - name: Set up JDK 11
-      #   uses: actions/setup-java@v3
-      #   with:
-      #     distribution: 'adopt'
-      #     java-version: '11'
-      #     cache: 'gradle'
+      # Setup JDK and cache and restore dependencies.
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'adopt'
+          java-version: '11'
+          cache: 'gradle'
 
-      # # Build the SDK
-      # - name: Build the SDK
-      #   run: ./gradlew build -x test --stacktrace --no-daemon
+      # Build the SDK
+      - name: Build the SDK
+        run: ./gradlew build -x test --stacktrace --no-daemon
 
-      # # Prepare secring.gpg file
-      # - name: Prepare secring.gpg file
-      #   run: echo -n ${{ secrets.PUBLISHING_SIGNING_KEY_RING_FILE_BASE64 }} | base64 --decode --output $RUNNER_TEMP/secring.gpg
+      # Prepare secring.gpg file
+      - name: Prepare secring.gpg file
+        run: echo -n ${{ secrets.PUBLISHING_SIGNING_KEY_RING_FILE_BASE64 }} | base64 --decode --output $RUNNER_TEMP/secring.gpg
 
-      # # Prepare credentials for publishing (local.properties)
-      # - name: Prepare local.properties file with publishing credentials
-      #   if: success()
-      #   run: |
-      #       cat <<EOF > local.properties
-      #       signing.keyId=${{ secrets.PUBLISHING_SIGNING_KEY_ID }}
-      #       signing.password=${{ secrets.PUBLISHING_SIGNING_KEY_PASSWORD }}
-      #       signing.secretKeyRingFile=$RUNNER_TEMP/secring.gpg
-      #       ossrhUsername=${{ secrets.PUBLISHING_USERNAME }}
-      #       ossrhPassword=${{ secrets.PUBLISHING_PASSWORD }}
-      #       EOF
+      # Prepare credentials for publishing (local.properties)
+      - name: Prepare local.properties file with publishing credentials
+        if: success()
+        run: |
+            cat <<EOF > local.properties
+            signing.keyId=${{ secrets.PUBLISHING_SIGNING_KEY_ID }}
+            signing.password=${{ secrets.PUBLISHING_SIGNING_KEY_PASSWORD }}
+            signing.secretKeyRingFile=$RUNNER_TEMP/secring.gpg
+            ossrhUsername=${{ secrets.PUBLISHING_USERNAME }}
+            ossrhPassword=${{ secrets.PUBLISHING_PASSWORD }}
+            EOF
+      
+      - name: Extract version from CHANGELOG.md
+        if: success()
+        run: |
+            echo "CHANGELOG_VERSION=$(echo $(awk '/[[0-9]+\.[0-9]+\.[0-9]]/{print;exit}' CHANGELOG.md | sed -E 's/(version)|[:,\",#]//gi' | tr -d '[[:space:]]'))" >> $GITHUB_ENV
 
-      # - name: Update the version number in the gradle.properties files
-      #   if: success()
-      #   run: sed -i -e s/^VERSION=.*$/VERSION=${{ inputs.version }}/g gradle.properties
+      - name: Update the version number in the gradle.properties files
+        if: success()
+        run: sed -i -e s/^VERSION=.*$/VERSION=$CHANGELOG_VERSION-SNAPSHOT/g gradle.properties
 
-      # # Publish to Nexus
-      # - name: Publish SNAPSHOT to Nexus repository
-      #   timeout-minutes: 5
-      #   if: success()
-      #   run: ./gradlew publishReleasePublicationToSonatypeRepository closeAndReleaseStagingRepository --no-daemon
+      - name: Dump gradle.properties
+        if: success()
+        run: cat gradle.properties
 
-      # # # Finally, tag the repo, and create a new release
-      # # - name: Tag the repo and create a new release
-      # #   if: success()
-      # #   uses: actions/create-release@v1
-      # #   env:
-      # #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # #   with:
-      # #     tag_name: ${{ inputs.version }}
-      # #     release_name: ${{ inputs.version }} Release
-      # #     body: ForgeRock Android SDK ${{ inputs.version }} Release
 
-      # # Send slack notification with result status
-      # - name: Send slack notification
-      #   uses: 8398a7/action-slack@v3
-      #   with:
-      #     status: custom
-      #     fields: all
-      #     custom_payload: |
-      #       {
-      #         attachments: [{
-      #           title: 'ForgeRock Android SDK ${{ inputs.version }} published to Nexus',
-      #           color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
-      #           text: `\nStatus: ${{ job.status }}\nWorkflow: ${process.env.AS_WORKFLOW} -> ${process.env.AS_JOB}`, 
-      #         }]
-      #       }
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-      #   if: always()
+      # Publish to Nexus
+      - name: Publish SNAPSHOT to Nexus repository
+        timeout-minutes: 5
+        if: success()
+        run: ./gradlew publishReleasePublicationToSonatypeRepository closeAndReleaseStagingRepository --no-daemon
+
+      # Send slack notification with result status
+      - name: Send slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          fields: all
+          custom_payload: |
+            {
+              attachments: [{
+                title: 'ForgeRock Android SDK ${{ inputs.version }} published to Nexus',
+                color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
+                text: `\nStatus: ${{ job.status }}\nWorkflow: ${process.env.AS_WORKFLOW} -> ${process.env.AS_JOB}`, 
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()
