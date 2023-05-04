@@ -7,29 +7,34 @@
 package org.forgerock.android.auth.callback
 
 import android.content.Context
+import android.util.Base64
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import org.forgerock.android.auth.CryptoKey
 import org.forgerock.android.auth.DeviceIdentifier
 import org.forgerock.android.auth.FRListener
 import org.forgerock.android.auth.Listener
 import org.forgerock.android.auth.devicebind.ApplicationPinDeviceAuthenticator
 import org.forgerock.android.auth.devicebind.BiometricAndDeviceCredential
+import org.forgerock.android.auth.devicebind.BiometricAuthenticator
 import org.forgerock.android.auth.devicebind.BiometricOnly
 import org.forgerock.android.auth.devicebind.DeviceAuthenticator
 import org.forgerock.android.auth.devicebind.DeviceBindingErrorStatus
 import org.forgerock.android.auth.devicebind.DeviceBindingErrorStatus.*
 import org.forgerock.android.auth.devicebind.DeviceBindingException
+import org.forgerock.android.auth.devicebind.DeviceBindingRepository
 import org.forgerock.android.auth.devicebind.DeviceBindingStatus
-import org.forgerock.android.auth.devicebind.DeviceRepository
 import org.forgerock.android.auth.devicebind.KeyPair
+import org.forgerock.android.auth.devicebind.LocalDeviceBindingRepository
 import org.forgerock.android.auth.devicebind.None
 import org.forgerock.android.auth.devicebind.Prompt
-import org.forgerock.android.auth.devicebind.SharedPreferencesDeviceRepository
 import org.forgerock.android.auth.devicebind.Success
+import org.forgerock.android.auth.devicebind.UserKey
 import org.forgerock.android.auth.devicebind.initialize
 import org.json.JSONObject
+import java.util.*
 
 /**
  * Callback to collect the device binding information
@@ -90,6 +95,19 @@ open class DeviceBindingCallback : AbstractCallback, Binding {
     var timeout: Int? = null
         private set
 
+    /**
+     * Enable Attestation
+     */
+    lateinit var attestation: Attestation
+        private set
+
+    init {
+        //If attestation is not provided, default to NONE
+        if (!::attestation.isInitialized) {
+            attestation = Attestation.None
+        }
+    }
+
     final override fun setAttribute(name: String, value: Any) = when (name) {
         "userId" -> userId = value as String
         "username" -> userName = value as String
@@ -100,6 +118,8 @@ open class DeviceBindingCallback : AbstractCallback, Binding {
         "subtitle" -> subtitle = value as? String ?: ""
         "description" -> description = value as? String ?: ""
         "timeout" -> timeout = value as? Int
+        "attestation" -> attestation = Attestation
+            .fromString(value as String, Base64.decode(challenge, Base64.NO_WRAP))
         else -> {}
     }
 
@@ -140,7 +160,9 @@ open class DeviceBindingCallback : AbstractCallback, Binding {
     }
 
     /**
-     * Bind the device.
+     * Bind the device. Calling the [bind] function, the existing bounded keys will be removed.
+     * If don't want to replace or remove existing keys, please use [FRUserKeys] to check existing
+     * keys before calling this method
      *
      * @param context  The Application Context
      * @param deviceAuthenticator A function to return a [DeviceAuthenticator], [deviceAuthenticatorIdentifier] will be used if not provided
@@ -162,7 +184,9 @@ open class DeviceBindingCallback : AbstractCallback, Binding {
     }
 
     /**
-     * Bind the device.
+     * Bind the device. Calling the [bind] function, the existing bounded keys will be removed.
+     * If don't want to replace or remove existing keys, please use [FRUserKeys] to check existing
+     * keys before calling this method
      *
      * @param context  The Application Context
      * @param deviceAuthenticator A function to return a [DeviceAuthenticator], [deviceAuthenticatorIdentifier] will be used if not provided
@@ -179,17 +203,16 @@ open class DeviceBindingCallback : AbstractCallback, Binding {
      * @param context  The Application Context
      * @param listener The Listener to listen for the result
      * @param deviceAuthenticator Interface to find the Authentication Type
-     * @param encryptedPreference Persist the values in encrypted shared preference
+     * @param deviceBindingRepository Persist the values in encrypted shared preference
      */
     @JvmOverloads
     internal suspend fun execute(context: Context,
                                  deviceAuthenticator: DeviceAuthenticator = getDeviceAuthenticator(
                                      deviceBindingAuthenticationType),
-                                 encryptedPreference: DeviceRepository = SharedPreferencesDeviceRepository(
+                                 deviceBindingRepository: DeviceBindingRepository = LocalDeviceBindingRepository(
                                      context),
                                  deviceId: String = DeviceIdentifier.builder().context(context)
                                      .build().identifier) {
-
 
         deviceAuthenticator.initialize(userId, Prompt(title, subtitle, description))
 
@@ -200,39 +223,66 @@ open class DeviceBindingCallback : AbstractCallback, Binding {
 
         //TODO We may need to delete other keys if we only want to maintain one keys on the device
         //TODO However, we may want to have Application Pin as fallback, so for now, keep multiple keys.
-        var keyPair: KeyPair? = null
+        var keyPair: KeyPair?
+        var userKey: UserKey? = null
         try {
             val status: DeviceBindingStatus
             withTimeout(getDuration(timeout)) {
-                keyPair = deviceAuthenticator.generateKeys(context)
+                clearKeys(context, deviceAuthenticator)
+                keyPair =
+                    deviceAuthenticator.generateKeys(context, attestation)
                 status = deviceAuthenticator.authenticate(context)
             }
             when (status) {
                 is Success -> {
-                    keyPair?.let {
-                        val kid = encryptedPreference.persist(userId,
-                            userName,
-                            it.keyAlias,
-                            deviceBindingAuthenticationType)
-                        val jws = deviceAuthenticator.sign(it,
-                            kid,
-                            userId,
-                            challenge,
-                            getExpiration(timeout))
-                        setJws(jws)
-                        setDeviceId(deviceId)
+                    keyPair?.let { kp ->
+                        userKey = UserKey(kp.keyAlias,
+                            userId, userName, kid = UUID.randomUUID().toString(),
+                            deviceBindingAuthenticationType
+                        )
+                        userKey?.let {
+                            deviceBindingRepository.persist(it)
+                            val jws = deviceAuthenticator.sign(context,
+                                kp,
+                                it.kid,
+                                userId,
+                                challenge,
+                                getExpiration(timeout),
+                                attestation)
+                            setJws(jws)
+                            setDeviceId(deviceId)
+                        }
                     }
                 }
                 is DeviceBindingErrorStatus -> {
-                    handleException(DeviceBindingException(status))
+                    throw DeviceBindingException(status)
                 }
             }
         } catch (e: Exception) {
-            keyPair?.let { encryptedPreference.delete(it.keyAlias) }
+            userKey?.let { deviceBindingRepository.delete(it) }
             deviceAuthenticator.deleteKeys(context)
             handleException(e)
         }
     }
+
+    /**
+     * For now we don't support multiple keys, so before we create new keys,
+     * we clean existing keys.
+     */
+    private fun clearKeys(context: Context, deviceAuthenticator: DeviceAuthenticator) {
+        when (deviceAuthenticator) {
+            is ApplicationPinDeviceAuthenticator -> {
+                //Delete Keys from keystore
+                getCryptoKey().deleteKeys()
+            }
+            is BiometricAuthenticator, is None -> {
+                ApplicationPinDeviceAuthenticator().initialize(userId).deleteKeys(context)
+            }
+        }
+        deviceAuthenticator.deleteKeys(context)
+    }
+
+    open fun getCryptoKey() = CryptoKey(userId)
 }
 
 

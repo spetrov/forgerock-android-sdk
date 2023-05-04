@@ -43,13 +43,13 @@
     <string name="forgerock_registration_service" translatable="false">Registration Tree2</string>
 
     <string name="asset_statements" translatable="false">           [{
-             "include": "https://openam.example.com/.well-known/assetlinks.json"
+             \"include\": \"https://openam.example.com/.well-known/assetlinks.json\"
            }]</string>
 
     <!-- Facebook -->
     <string name="facebook_app_id">your facebook app id</string>
-    <string name="fb_login_protocol_scheme">your facebook scheme</string>
-
+    <string name="fb_login_protocol_scheme">your facebook app scheme</string>
+    <string name="facebook_client_token">your facebook app token</string>
 
     <!-- End of SDK Configuration -->
 
