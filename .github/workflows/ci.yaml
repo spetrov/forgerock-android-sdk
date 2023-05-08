@@ -87,7 +87,12 @@ jobs:
           echo "$GITHUB_CONTEXT"
           echo "GITHUB_REF: $GITHUB_REF"
 
-  # publish-snapshot:
+      - name: Publish SNAPSHOT to Nexus
+        if: (github.ref == 'refs/heads/develop')
+        run: |
+          echo "I did it!"
+
+  # publish-snapshot-do-it:
   #   name: Publish SNAPSHOT to Nexus
   #   if: (github.ref == 'refs/heads/develop')
   #   #  && (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
