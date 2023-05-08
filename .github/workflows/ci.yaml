@@ -86,9 +86,12 @@ jobs:
         run: |
           echo "$GITHUB_CONTEXT"
           echo "GITHUB_REF: $GITHUB_REF"
+          echo "========================================"
+          echo ${{ github.event_name }}
+          echo ${{ github.ref }}
 
       - name: Publish SNAPSHOT to Nexus
-        if: (github.ref == 'refs/heads/develop')
+        if: (github.ref == 'refs/heads/develop' && github.event_name == 'push' )
         run: |
           echo "I did it!"
 
