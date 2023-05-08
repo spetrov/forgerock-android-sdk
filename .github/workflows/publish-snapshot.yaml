@@ -1,11 +1,6 @@
 name: Publish Snapshot
 on:
   workflow_call:
-    inputs:
-      version:
-        description: Version number
-        type: string
-        required: true
     secrets:
       SLACK_WEBHOOK:
         description: Slack Notifier Incoming Webhook
@@ -27,89 +22,37 @@ on:
         required: true
 
 jobs:
-  publish-snapshot:
-    if: 
+  # Extract the version number from CHANGELOG.md
+  changelog-version:
     runs-on: macos-latest
-
+    outputs:
+      version: ${{ steps.version_output.outputs.version }}
     steps:
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJSON(github) }}
-          GITHUB_REF: ${{ github.event.pull_request.head.ref }}
-        run: |
-          echo "$GITHUB_CONTEXT"
-          echo "GITHUB_REF: $GITHUB_REF"
-
       # Clone the repo
       - name: Clone the repository
         uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          fetch-depth: 0
 
-      # Setup JDK and cache and restore dependencies.
-      - name: Set up JDK 11
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'adopt'
-          java-version: '11'
-          cache: 'gradle'
-
-      # Build the SDK
-      - name: Build the SDK
-        run: ./gradlew build -x test --stacktrace --no-daemon
-
-      # Prepare secring.gpg file
-      - name: Prepare secring.gpg file
-        run: echo -n ${{ secrets.PUBLISHING_SIGNING_KEY_RING_FILE_BASE64 }} | base64 --decode --output $RUNNER_TEMP/secring.gpg
-
-      # Prepare credentials for publishing (local.properties)
-      - name: Prepare local.properties file with publishing credentials
-        if: success()
-        run: |
-            cat <<EOF > local.properties
-            signing.keyId=${{ secrets.PUBLISHING_SIGNING_KEY_ID }}
-            signing.password=${{ secrets.PUBLISHING_SIGNING_KEY_PASSWORD }}
-            signing.secretKeyRingFile=$RUNNER_TEMP/secring.gpg
-            ossrhUsername=${{ secrets.PUBLISHING_USERNAME }}
-            ossrhPassword=${{ secrets.PUBLISHING_PASSWORD }}
-            EOF
-      
+      # Extract version from CHANGELOG.md
       - name: Extract version from CHANGELOG.md
-        if: success()
+        id: changelog-version
         run: |
-            echo "CHANGELOG_VERSION=$(echo $(awk '/[[0-9]+\.[0-9]+\.[0-9]]/{print;exit}' CHANGELOG.md | sed -E 's/(version)|[:,\",#]//gi' | tr -d '[[:space:]]'))" >> $GITHUB_ENV
+          echo "CHANGELOG_VERSION=$(echo $(awk '/[[0-9]+\.[0-9]+\.[0-9]]/{print;exit}' CHANGELOG.md | sed -E 's/(version)|[:,\",#]//gi' | tr -d '[[:space:]]'))" >> $GITHUB_ENV
 
-      - name: Update the version number in the gradle.properties files
-        if: success()
-        run: sed -i -e s/^VERSION=.*$/VERSION=$CHANGELOG_VERSION-SNAPSHOT/g gradle.properties
+      # Set version as output...
+      - name: Set the version output
+        id: version_output
+        run: echo "version=${{ env.CHANGELOG_VERSION }}" >> "$GITHUB_OUTPUT"
 
-      - name: Dump gradle.properties
-        if: success()
-        run: cat gradle.properties
-
-
-      # Publish to Nexus
-      - name: Publish SNAPSHOT to Nexus repository
-        timeout-minutes: 5
-        if: success()
-        run: ./gradlew publishReleasePublicationToSonatypeRepository closeAndReleaseStagingRepository --no-daemon
-
-      # Send slack notification with result status
-      - name: Send slack notification
-        uses: 8398a7/action-slack@v3
-        with:
-          status: custom
-          fields: all
-          custom_payload: |
-            {
-              attachments: [{
-                title: 'ForgeRock Android SDK ${{ inputs.version }} published to Nexus',
-                color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
-                text: `\nStatus: ${{ job.status }}\nWorkflow: ${process.env.AS_WORKFLOW} -> ${process.env.AS_JOB}`, 
-              }]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-        if: always()
+  # Publish SNAPSHOT to Nexus
+  publish-snapshot:
+    uses: ./.github/workflows/publish.yaml
+    needs: changelog-version
+    secrets:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      PUBLISHING_SIGNING_KEY_ID: ${{ secrets.PUBLISHING_SIGNING_KEY_ID }}
+      PUBLISHING_SIGNING_KEY_PASSWORD: ${{ secrets.PUBLISHING_SIGNING_KEY_PASSWORD }}
+      PUBLISHING_SIGNING_KEY_RING_FILE_BASE64: ${{ secrets.PUBLISHING_SIGNING_KEY_RING_FILE_BASE64 }}
+      PUBLISHING_USERNAME: ${{ secrets.PUBLISHING_USERNAME }}
+      PUBLISHING_PASSWORD: ${{ secrets.PUBLISHING_PASSWORD }}
+    with: 
+      version: ${{ needs.changelog-version.outputs.version }}-SNAPSHOT
