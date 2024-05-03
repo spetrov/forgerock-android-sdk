@@ -1,17 +1,24 @@
+
+
 apply plugin: 'jacoco'
 
 jacoco {
     toolVersion = "0.8.12"
 }
 
+tasks.withType(Test) {
+    jacoco.includeNoLocationClasses = true
+    jacoco.excludes = ['jdk.internal.*']
+    // see related issue https://github.com/gradle/gradle/issues/5184#issuecomment-457865951
+}
+
 task jacocoReport(type: JacocoReport, dependsOn: 'testDebugUnitTest') {
     reports {
-        csv { enabled false } // change if needed
-        xml { enabled true } // change if needed
-        html {
-            enabled true
-            destination file("${buildDir}/coverage-report")
-        }
+        xml.required.set(true)
+        html.required.set(true)
+
+        html.destination file("${buildDir}/coverage-report")
+        xml.destination file("${buildDir}/coverage-report/jacoco.xml")
     }
 
     // Setup the .class, source, and execution directories
@@ -27,4 +34,6 @@ task jacocoReport(type: JacocoReport, dependsOn: 'testDebugUnitTest') {
     executionData.setFrom fileTree(dir: project.buildDir, includes: [
             'jacoco/testDebugUnitTest.exec', 'outputs/code-coverage/connected/*coverage.ec'
     ])
+
 }
+

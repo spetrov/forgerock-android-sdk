@@ -10,6 +10,9 @@ on:
       SLACK_WEBHOOK:
         description: Slack Notifier Incoming Webhook
         required: true
+      CODECOV_TOKEN:
+        description: Codecov token
+        required: true
 jobs:
   build-and-test:
     runs-on: ${{ inputs.runs-on }}
@@ -63,6 +66,9 @@ jobs:
         uses: codecov/codecov-action@v4.0.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: forgerock-core/build/coverage-report/jacoco.xml, forgerock-auth/build/coverage-report/jacoco.xml, forgerock-authenticator/build/coverage-report/jacoco.xml, ping-protect/build/coverage-report/jacoco.xml
+          flags: unittests
+          verbose: true
 
       # Send slack notification with result status
       - uses: 8398a7/action-slack@v3
