@@ -33,19 +33,19 @@ jobs:
 
       # Execute forgerock-core debug unit tests
       - name: Run forgerock-core debug unit tests
-        run: ./gradlew :forgerock-core:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :forgerock-core:jacocoReport --stacktrace --no-daemon
         
       # Execute forgerock-auth debug unit tests
       - name: Run forgerock-auth debug unit tests
-        run: ./gradlew :forgerock-auth:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :forgerock-auth:jacocoReport --stacktrace --no-daemon
 
       # Execute forgerock-authenticator debug unit tests
       - name: Run forgerock-authenticator debug unit tests
-        run: ./gradlew :forgerock-authenticator:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :forgerock-authenticator:jacocoReport --stacktrace --no-daemon
 
       # Execute forgerock-authenticator debug unit tests
       - name: Run ping-protect debug unit tests
-        run: ./gradlew :ping-protect:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :ping-protect:jacocoReport --stacktrace --no-daemon
 
       # Publish test reports for the unit tests
       - name: Publish test results
@@ -58,6 +58,11 @@ jobs:
           list-tests: 'all'
           fail-on-error: 'true'
           reporter: java-junit
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       # Send slack notification with result status
       - uses: 8398a7/action-slack@v3
