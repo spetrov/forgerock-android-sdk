@@ -47,6 +47,7 @@ android {
 
 apply("../config/logger.gradle")
 apply("../config/kdoc.gradle")
+apply("../config/jacoco.gradle")
 apply("../config/publish.gradle")
 
 val delombok by configurations.creating {
