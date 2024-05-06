@@ -11,12 +11,12 @@ import org.forgerock.android.auth.Node
 import org.forgerock.android.auth.NodeListener
 
 class DummyNodeListener : NodeListener<Any> {
-    override fun onSuccess(result: Any?) {
+    override fun onSuccess(result: Any) {
     }
 
-    override fun onException(e: Exception?) {
+    override fun onException(e: Exception) {
     }
 
-    override fun onCallbackReceived(node: Node?) {
+    override fun onCallbackReceived(node: Node) {
     }
 }

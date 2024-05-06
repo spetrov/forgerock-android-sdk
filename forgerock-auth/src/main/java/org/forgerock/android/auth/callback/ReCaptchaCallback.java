@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 ForgeRock. All rights reserved.
+ * Copyright (c) 2019 - 2023 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -23,7 +23,6 @@ import lombok.NoArgsConstructor;
 /**
  * Callback designed for usage with the ReCaptchaNode.
  */
-@NoArgsConstructor
 @Getter
 public class ReCaptchaCallback extends AbstractCallback {
 
@@ -33,6 +32,10 @@ public class ReCaptchaCallback extends AbstractCallback {
      * @return the site key.
      */
     private String reCaptchaSiteKey;
+
+    @Keep
+    public ReCaptchaCallback() {
+    }
 
     /**
      * Constructor that creates a {@link ReCaptchaCallback}.
@@ -47,6 +50,15 @@ public class ReCaptchaCallback extends AbstractCallback {
         if ("recaptchaSiteKey".equals(name)) {
             this.reCaptchaSiteKey = (String) value;
         }
+    }
+
+    /**
+     * Set the Value for the ReCAPTCHA
+     *
+     * @param token  The Token received from the captcha server
+     */
+    public void setValue(String token) {
+        super.setValue(token);
     }
 
     /**
@@ -65,7 +77,9 @@ public class ReCaptchaCallback extends AbstractCallback {
                             }
                             Listener.onSuccess(listener, null);
                         })
-                .addOnFailureListener(e -> Listener.onException(listener, e));
+                .addOnFailureListener(e ->
+                        Listener.onException(listener, e)
+                );
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 - 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2019 - 2024 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -58,6 +58,7 @@ public class CallbackFragmentFactory {
         register(SuspendedTextOutputCallback.class, SuspendedTextOutputCallbackFragment.class);
         register(ReCaptchaCallback.class, ReCaptchaCallbackFragment.class);
         register(ConsentMappingCallback.class, ConsentMappingCallbackFragment.class);
+        register(AppIntegrityCallback.class, AppIntegrityCallbackFragment.class);
         register(DeviceProfileCallback.class, DeviceProfileCallbackFragment.class);
         register(DeviceBindingCallback.class, DeviceBindingCallbackFragment.class);
         register(DeviceSigningVerifierCallback.class, DeviceSigningVerifierCallbackFragment.class);
@@ -65,6 +66,7 @@ public class CallbackFragmentFactory {
         register(WebAuthnAuthenticationCallback.class, WebAuthnAuthenticationCallbackFragment.class);
         register(SelectIdPCallback.class, SelectIdPCallbackFragment.class);
         register(IdPCallback.class, IdPCallbackFragment.class);
+        register(TextInputCallback.class, TextInputCallbackFragment.class);
     }
 
     public static CallbackFragmentFactory getInstance() {

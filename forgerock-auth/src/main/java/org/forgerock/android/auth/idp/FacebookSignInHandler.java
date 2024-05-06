@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 ForgeRock. All rights reserved.
+ * Copyright (c) 2021 - 2023 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -7,7 +7,6 @@
 
 package org.forgerock.android.auth.idp;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.os.OperationCanceledException;
 
@@ -25,7 +24,6 @@ import org.forgerock.android.auth.FRListener;
 import org.forgerock.android.auth.InitProvider;
 import org.forgerock.android.auth.Listener;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -51,7 +49,7 @@ public class FacebookSignInHandler extends Fragment implements IdPHandler {
         callbackManager = CallbackManager.Factory.create();
 
         // Callback registration
-        LoginManager.getInstance().registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+        LoginManager.getInstance().registerCallback(callbackManager, new FacebookCallback<>() {
             @Override
             public void onSuccess(LoginResult loginResult) {
                 Listener.onSuccess(listener, new IdPResult(loginResult.getAccessToken().getToken()));
@@ -67,13 +65,7 @@ public class FacebookSignInHandler extends Fragment implements IdPHandler {
                 Listener.onException(listener, exception);
             }
         });
-        LoginManager.getInstance().logInWithReadPermissions(this, getPermissions(idPClient));
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        callbackManager.onActivityResult(requestCode, resultCode, data);
+        LoginManager.getInstance().logInWithReadPermissions(this, callbackManager, getPermissions(idPClient));
     }
 
     @Override
@@ -89,7 +81,7 @@ public class FacebookSignInHandler extends Fragment implements IdPHandler {
 
     @Override
     public void signIn(Fragment fragment, IdPClient idPClient, FRListener<IdPResult> listener) {
-        signIn(fragment.getFragmentManager(), idPClient, listener);
+        signIn(fragment.getParentFragmentManager(), idPClient, listener);
     }
 
     private void signIn(FragmentManager fragmentManager, IdPClient idPClient, FRListener<IdPResult> listener) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2022 - 2023 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -150,11 +150,11 @@ class MainActivity : AppCompatActivity(), NodeListener<FRUser>, ActivityListener
         }
     }
 
-    override fun onSuccess(result: FRUser?) {
+    override fun onSuccess(result: FRUser) {
         getUserInfo(result)
     }
 
-    override fun onException(e: Exception?) {
+    override fun onException(e: Exception) {
         Logger.error(classNameTag, e?.message, e)
         runOnUiThread {
             val dialogBuilder = AlertDialog.Builder(this)
@@ -174,7 +174,7 @@ class MainActivity : AppCompatActivity(), NodeListener<FRUser>, ActivityListener
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
-    override fun onCallbackReceived(node: Node?) {
+    override fun onCallbackReceived(node: Node) {
         val activity = this
 
         var nodeDialog = supportFragmentManager.findFragmentByTag(NodeDialogFragment.TAG) as? NodeDialogFragment
@@ -187,12 +187,12 @@ class MainActivity : AppCompatActivity(), NodeListener<FRUser>, ActivityListener
                         runOnUiThread {
                             val deviceBindingCallback =
                                 node.getCallback(DeviceBindingCallback::class.java)
-                            deviceBindingCallback.bind(activity, listener =  object : FRListener<Void> {
+                            deviceBindingCallback.bind(activity, listener =  object : FRListener<Void?> {
                                 override fun onSuccess(result: Void?) {
                                     node.next(activity, activity)
                                 }
 
-                                override fun onException(e: java.lang.Exception?) {
+                                override fun onException(e: java.lang.Exception) {
                                     node.next(activity, activity)
                                 }
                             })
@@ -202,12 +202,12 @@ class MainActivity : AppCompatActivity(), NodeListener<FRUser>, ActivityListener
                         runOnUiThread {
                             val deviceBindingCallback =
                                 node.getCallback(DeviceSigningVerifierCallback::class.java)
-                            deviceBindingCallback.sign(activity, listener = object : FRListener<Void> {
+                            deviceBindingCallback.sign(activity, listener = object : FRListener<Void?> {
                                 override fun onSuccess(result: Void?) {
                                     node.next(activity, activity)
                                 }
 
-                                override fun onException(e: java.lang.Exception?) {
+                                override fun onException(e: java.lang.Exception) {
                                     node.next(activity, activity)
                                 }
                             })
@@ -216,7 +216,7 @@ class MainActivity : AppCompatActivity(), NodeListener<FRUser>, ActivityListener
                     "WebAuthnAuthenticationCallback" -> {
                         val webAuthCallback =
                             node.getCallback(WebAuthnAuthenticationCallback::class.java)
-                        webAuthCallback?.authenticate(this, node, listener = object : FRListener<Void> {
+                        webAuthCallback?.authenticate(this, node, listener = object : FRListener<Void?> {
                             override fun onException(e: Exception) {
                                 node.next(activity, activity)
                             }
@@ -228,24 +228,24 @@ class MainActivity : AppCompatActivity(), NodeListener<FRUser>, ActivityListener
                     }
                     "WebAuthnRegistrationCallback" -> {
                         val callback = node.getCallback(WebAuthnRegistrationCallback::class.java)
-                        callback?.register(this, node= node, listener = object : FRListener<Void> {
+                        callback?.register(this, node= node, listener = object : FRListener<Void?> {
                             override fun onSuccess(result: Void?) {
                                 node.next(activity, activity)
                             }
 
-                            override fun onException(e: java.lang.Exception?) {
+                            override fun onException(e: java.lang.Exception) {
                                 node.next(activity, activity)
                             }
                         })
                     }
                     "IdPCallback" -> {
                         val idp: IdPCallback = node.getCallback(IdPCallback::class.java)
-                        idp.signIn(null, object : FRListener<Void?> {
-                            override fun onSuccess(result: Void?) {
+                        idp.signIn(null, object : FRListener<Void> {
+                            override fun onSuccess(result: Void) {
                                 node.next(activity, activity)
                             }
 
-                            override fun onException(e: java.lang.Exception?) {
+                            override fun onException(e: java.lang.Exception) {
                             }
 
                         })
@@ -254,12 +254,12 @@ class MainActivity : AppCompatActivity(), NodeListener<FRUser>, ActivityListener
                         val deviceProfileCallback =
                             node.getCallback(DeviceProfileCallback::class.java)
 
-                        deviceProfileCallback?.execute(activity, object : FRListener<Void?> {
+                        deviceProfileCallback?.execute(activity, object : FRListener<Void> {
                             override fun onException(e: Exception) {
                                 node.next(activity, activity)
                             }
 
-                            override fun onSuccess(result: Void?) {
+                            override fun onSuccess(result: Void) {
                                 node.next(activity, activity)
                             }
                         })

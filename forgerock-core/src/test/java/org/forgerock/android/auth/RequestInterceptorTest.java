@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2020 - 2024 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -8,11 +8,12 @@
 package org.forgerock.android.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static java.util.Collections.singletonList;
 
 import android.net.Uri;
+
+import androidx.annotation.NonNull;
 
 import com.squareup.okhttp.mockwebserver.MockResponse;
 import com.squareup.okhttp.mockwebserver.MockWebServer;
@@ -28,12 +29,18 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 import kotlin.Pair;
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.Cookie;
+import okhttp3.CookieJar;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.RequestBody;
@@ -55,14 +62,14 @@ public class RequestInterceptorTest {
         data = new JSONObject();
         data.put("test", "test");
         OkHttpClientProvider.getInstance().clear();
-        RequestInterceptorRegistry.getInstance().register(null);
+        RequestInterceptorRegistry.getInstance().register((RequestInterceptor) null);
     }
 
     @After
     public void tearDown() throws Exception {
         server.shutdown();
         OkHttpClientProvider.getInstance().clear();
-        RequestInterceptorRegistry.getInstance().register(null);
+        RequestInterceptorRegistry.getInstance().register((RequestInterceptor) null);
     }
 
     private String getUrl() {
@@ -121,6 +128,8 @@ public class RequestInterceptorTest {
         RecordedRequest recordedRequest = server.takeRequest();
         assertThat(recordedRequest.getHeader("HeaderName")).isEqualTo("HeaderValue");
         assertThat(recordedRequest.getHeader("HeaderName2")).isEqualTo("HeaderValue2");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
     }
 
     @Test
@@ -137,7 +146,10 @@ public class RequestInterceptorTest {
                 .get()
                 .build();
         send(networkConfig, request);
-        assertThat(server.takeRequest().getHeader("HeaderName")).isEqualTo("HeaderValue");
+        RecordedRequest recordedRequest = server.takeRequest();
+        assertThat(recordedRequest.getHeader("HeaderName")).isEqualTo("HeaderValue");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
     }
 
     @Test
@@ -154,7 +166,10 @@ public class RequestInterceptorTest {
                 .get()
                 .build();
         send(networkConfig, request);
-        assertThat(server.takeRequest().getHeader("HeaderName")).isNull();
+        RecordedRequest recordedRequest = server.takeRequest();
+        assertThat(recordedRequest.getHeader("HeaderName")).isNull();
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
     }
 
     @Test
@@ -171,7 +186,12 @@ public class RequestInterceptorTest {
                 .get()
                 .build();
         send(networkConfig, request);
-        assertThat(server.takeRequest().getHeader("HeaderName")).isEqualTo("HeaderValue2");
+
+        RecordedRequest recordedRequest = server.takeRequest();
+
+        assertThat(recordedRequest.getHeader("HeaderName")).isEqualTo("HeaderValue2");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
     }
 
     @Test
@@ -187,7 +207,10 @@ public class RequestInterceptorTest {
                 .get()
                 .build();
         send(networkConfig, request);
-        assertThat(server.takeRequest().getPath()).isEqualTo("/somewhere");
+        RecordedRequest recordedRequest = server.takeRequest();
+        assertThat(recordedRequest.getPath()).isEqualTo("/somewhere");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
 
     }
 
@@ -222,9 +245,12 @@ public class RequestInterceptorTest {
 
     @Test
     public void testCustomizeParam() throws InterruptedException, JSONException {
-
         RequestInterceptorRegistry.getInstance().register(
-                request -> request.newBuilder().url(getUrl() + "?forceAuth=true").build());
+                request -> request.newBuilder().url(getUrl() + "?forceAuth=true")
+                        .header("custom_param", "custom-value")
+                        .header("x-requested-with", "jey")
+                        .header("x-requested-platform", "andy")
+                        .build());
 
         NetworkConfig networkConfig = NetworkConfig.networkBuilder()
                 .host(server.getHostName())
@@ -234,8 +260,11 @@ public class RequestInterceptorTest {
                 .get()
                 .build();
         send(networkConfig, request);
-        Uri uri = Uri.parse(server.takeRequest().getPath());
+        RecordedRequest recordedRequest = server.takeRequest();
+        Uri uri = Uri.parse(recordedRequest.getPath());
         assertThat(uri.getQueryParameter("forceAuth")).isEqualTo("true");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
 
     }
 
@@ -308,6 +337,8 @@ public class RequestInterceptorTest {
         JSONObject result = new JSONObject(recordedRequest.getBody().readUtf8());
         assertThat(result.getString("sampleName")).isEqualTo("sampleValue");
         assertThat(recordedRequest.getMethod()).isEqualTo("PUT");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
 
     }
 
@@ -333,6 +364,8 @@ public class RequestInterceptorTest {
         JSONObject result = new JSONObject(recordedRequest.getBody().readUtf8());
         assertThat(result.getString("sampleName")).isEqualTo("sampleValue");
         assertThat(recordedRequest.getMethod()).isEqualTo("PATCH");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
 
     }
 
@@ -356,6 +389,8 @@ public class RequestInterceptorTest {
         RecordedRequest recordedRequest = server.takeRequest();
         assertThat(recordedRequest.getBody().size()).isEqualTo(0);
         assertThat(recordedRequest.getMethod()).isEqualTo("DELETE");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
     }
 
     @Test
@@ -380,6 +415,8 @@ public class RequestInterceptorTest {
         JSONObject result = new JSONObject(recordedRequest.getBody().readUtf8());
         assertThat(result.getString("sampleName")).isEqualTo("sampleValue");
         assertThat(recordedRequest.getMethod()).isEqualTo("DELETE");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
 
     }
 
@@ -437,6 +474,43 @@ public class RequestInterceptorTest {
         assertThat(RequestInterceptorRegistry.getInstance().getRequestInterceptors().length).isEqualTo(2);
     }
 
+    @Test
+    public void testCookieIntercept() throws InterruptedException {
+
+        RequestInterceptorRegistry.getInstance().register((CustomCookieInterceptor) httpUrl -> {
+            List<Cookie> cookies = new ArrayList<>();
+            cookies.add(new Cookie.Builder().domain("localhost").name("test").value("testValue").build());
+            return cookies;
+        });
+
+        NetworkConfig networkConfig = NetworkConfig.networkBuilder()
+                .host(server.getHostName())
+                .cookieJarSupplier(() -> new CustomCookieJar() {}).build();
+        okhttp3.Request request = new okhttp3.Request.Builder()
+                .url(getUrl())
+                .get()
+                .build();
+        send(networkConfig, request);
+        RecordedRequest recordedRequest = server.takeRequest();
+        assertThat(recordedRequest.getHeader("Cookie")).isEqualTo("test=testValue");
+        assertThat(recordedRequest.getHeader("x-requested-with")).isEqualTo("forgerock-sdk");
+        assertThat(recordedRequest.getHeader("x-requested-platform")).isEqualTo("android");
+    }
+
+    private interface CustomCookieJar extends CookieJar, OkHttpCookieInterceptor {
+        @NonNull
+        @Override
+        default List<Cookie> loadForRequest(@NonNull HttpUrl httpUrl) {
+            return intercept(Collections.emptyList());
+        }
+
+        @Override
+        default void saveFromResponse(@NonNull HttpUrl httpUrl, @NonNull List<Cookie> list) {
+        }
+    }
+
+
+
     private void send(NetworkConfig networkConfig, okhttp3.Request request) throws InterruptedException {
         OkHttpClient client = OkHttpClientProvider.getInstance().lookup(networkConfig);
         CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -454,6 +528,14 @@ public class RequestInterceptorTest {
         });
         countDownLatch.await();
     }
+    private interface CustomCookieInterceptor extends FRRequestInterceptor<Action>, CookieInterceptor {
+        @NonNull
+        @Override
+        default Request intercept(@NonNull Request request, Action tag) {
+            return request;
+        }
+    }
+
 
 
 }

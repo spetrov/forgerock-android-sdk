@@ -10,7 +10,14 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.io.IOException
-import java.security.*
+import java.security.GeneralSecurityException
+import java.security.KeyPair
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
+import java.security.PrivateKey
+import java.security.cert.Certificate
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.AlgorithmParameterSpec
 
@@ -23,7 +30,7 @@ class CryptoKey(private var keyId: String) {
     //For hashing the keyId
     private val hashingAlgorithm = "SHA-256"
     val keySize = 2048
-    val timeout = 60
+    val timeout = 5
     private val androidKeyStore = "AndroidKeyStore"
     private val encryptionBlockMode = KeyProperties.BLOCK_MODE_ECB
     private val encryptionPadding = KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1
@@ -38,7 +45,9 @@ class CryptoKey(private var keyId: String) {
      */
     fun keyBuilder(): KeyGenParameterSpec.Builder {
         return KeyGenParameterSpec.Builder(keyAlias, purpose)
-            .setDigests(KeyProperties.DIGEST_SHA512).setKeySize(keySize)
+            .setDigests(KeyProperties.DIGEST_SHA512,
+                KeyProperties.DIGEST_SHA384,
+                KeyProperties.DIGEST_SHA256).setKeySize(keySize)
             .setSignaturePaddings(signaturePadding).setBlockModes(encryptionBlockMode)
             .setEncryptionPaddings(encryptionPadding)
     }
@@ -68,6 +77,15 @@ class CryptoKey(private var keyId: String) {
         val keyStore: KeyStore = getKeyStore()
         return keyStore.getKey(keyAlias, null) as? PrivateKey
     }
+
+    /**
+     * Get the Certificate chain
+     */
+    fun getCertificateChain(): Array<Certificate> {
+        val keyStore: KeyStore = getKeyStore()
+        return keyStore.getCertificateChain(keyAlias)
+    }
+
 
     /**
      * Delete keys from Android KeyStore

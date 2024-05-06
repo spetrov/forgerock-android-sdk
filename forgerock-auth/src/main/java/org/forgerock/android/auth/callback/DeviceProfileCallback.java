@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 ForgeRock. All rights reserved.
+ * Copyright (c) 2019 - 2023 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -22,7 +22,6 @@ import org.json.JSONObject;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@NoArgsConstructor
 @Getter
 public class DeviceProfileCallback extends AbstractCallback implements ActionCallback {
 
@@ -40,6 +39,10 @@ public class DeviceProfileCallback extends AbstractCallback implements ActionCal
      * The message which should be displayed to the user
      */
     private String message;
+
+    @Keep
+    public DeviceProfileCallback() {
+    }
 
     @Keep
     public DeviceProfileCallback(JSONObject jsonObject, int index) {
@@ -87,7 +90,7 @@ public class DeviceProfileCallback extends AbstractCallback implements ActionCal
 
             @Override
             public void onException(Exception e) {
-                Listener.onException(listener, null);
+                Listener.onException(listener, e);
             }
         });
     }

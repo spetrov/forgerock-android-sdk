@@ -1,19 +1,26 @@
 /*
- * Copyright (c) 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2022 - 2024 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
  */
 package org.forgerock.android.auth.biometric
 
+import android.Manifest
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Context.KEYGUARD_SERVICE
+import android.content.pm.PackageManager
 import android.hardware.fingerprint.FingerprintManager
 import android.os.Build
 import androidx.annotation.RestrictTo
 import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.biometric.BiometricPrompt.AuthenticationCallback
+import androidx.biometric.BiometricPrompt.CryptoObject
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import org.forgerock.android.auth.Logger.Companion.debug
@@ -31,7 +38,6 @@ import org.forgerock.android.auth.Logger.Companion.debug
  * @param activity the activity of the client application that will host the prompt.
  * @param biometricAuthListener listener for receiving the biometric authentication result.
  * @param description the description to be displayed on the prompt.
- * @param authenticatorType The type of biometric authenticator to be displayed.
  */
 class BiometricAuth @JvmOverloads constructor(
     /**
@@ -64,12 +70,8 @@ class BiometricAuth @JvmOverloads constructor(
      */
     private val description: String? = null,
 
-    /**
-     * The type of authenticator to be displayed.
-     * @return the authenticatorType as Int.
-     */
-    var authenticatorType: AuthenticatorType = AuthenticatorType.WEAK
-) {
+    ) {
+
     private var biometricManager: BiometricManager? = null
 
     private var fingerprintManager: FingerprintManager? = null
@@ -86,81 +88,101 @@ class BiometricAuth @JvmOverloads constructor(
     private fun handleError(logMessage: String, biometricErrorMessage: String, errorType: Int) {
         debug(TAG, logMessage)
         biometricAuthListener?.onAuthenticationError(
-            errorType, biometricErrorMessage)
-    }
-
-    private fun tryDisplayBiometricOnlyPrompt() {
-        if (hasBiometricCapability()) {
-            initBiometricAuthentication()
-        } else {
-            handleError("allowDeviceCredentials is set to false, but no biometric " +
-                    "hardware found or enrolled." ,"It requires " +
-                    "biometric authentication. No biometric hardware found or enrolled.", BiometricPrompt.ERROR_NO_BIOMETRICS)
-        }
+            errorType, biometricErrorMessage
+        )
     }
 
     /*
      * Starts authentication process.
      */
-    fun authenticate() {
-        // if biometric only, try biometric prompt
-        if (!allowDeviceCredentials) {
-            tryDisplayBiometricOnlyPrompt()
-            return
-        }
-
-        // API 29 and above, use BiometricPrompt
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            initBiometricAuthentication()
-            return
-        }
-
-        // API 23 - 28, check enrollment with FingerprintManager once BiometricPrompt might not work
-        if(hasEnrolledWithFingerPrint()) {
-            initBiometricAuthentication()
-            return
-        }
-
-        // API 23 or higher, no biometric, fallback to device credentials
-        if (hasDeviceCredential()) {
-            initDeviceCredentialAuthentication()
-        } else {
-            handleError("This device does not support required security features." +
-                    " No Biometric, device PIN, pattern, or password registered." ,"This device does " +
-                    "not support required security features. No Biometric, device PIN, pattern, " +
-                    "or password registered.", BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL)
+    fun authenticate(cryptoObject: CryptoObject? = null) {
+        getAuthenticators()?.let {
+            initBiometricAuthentication(cryptoObject, it)
+        } ?: run {
+            if (allowDeviceCredentials) {
+                handleError(
+                    "This device does not support required security features." +
+                            " No Biometric, device PIN, pattern, or password registered.",
+                    "This device does " +
+                            "not support required security features. No Biometric, device PIN, pattern, " +
+                            "or password registered.",
+                    BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL
+                )
+            } else {
+                handleError(
+                    "allowDeviceCredentials is set to false, but no biometric " +
+                            "hardware found or enrolled.",
+                    "It requires " +
+                            "biometric authentication. No biometric hardware found or enrolled.",
+                    BiometricPrompt.ERROR_NO_BIOMETRICS
+                )
+            }
         }
     }
 
     // API 23 - 28, check enrollment with FingerprintManager once BiometricPrompt might not work
     fun hasEnrolledWithFingerPrint(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && fingerprintManager != null && fingerprintManager?.hasEnrolledFingerprints() == true
+        return fingerprintManager != null && fingerprintManager?.hasEnrolledFingerprints() == true
     }
 
     // API 23 or higher, no biometric, fallback to device credentials
     fun hasDeviceCredential(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && keyguardManager != null && keyguardManager?.isDeviceSecure == true
+        return keyguardManager != null && keyguardManager?.isDeviceSecure == true
     }
 
     // validate the biometric capability for given type and return Boolean
     fun hasBiometricCapability(authenticators: Int): Boolean {
-        if (biometricManager == null) return false
-        val canAuthenticate =
-            biometricManager?.canAuthenticate(authenticators)
-        return canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
+        return biometricManager?.let {
+            val canAuthenticate =
+                biometricManager?.canAuthenticate(authenticators)
+            return canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
+        } ?: false
+    }
+
+    private fun getAuthenticators(): Int? {
+        biometricManager?.let {
+            if (allowDeviceCredentials) {
+                if (hasBiometricCapability(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)) {
+                    return BIOMETRIC_STRONG or DEVICE_CREDENTIAL
+                }
+                if (hasBiometricCapability(BIOMETRIC_WEAK or DEVICE_CREDENTIAL)
+                    || hasEnrolledWithFingerPrint()
+                    || hasDeviceCredential()) {
+                    return BIOMETRIC_WEAK or DEVICE_CREDENTIAL
+                }
+                return null
+            } else {
+                if (hasBiometricCapability(BIOMETRIC_STRONG)) {
+                    return BIOMETRIC_STRONG
+                }
+                if (hasBiometricCapability(BIOMETRIC_WEAK)) {
+                    return BIOMETRIC_WEAK
+                }
+            }
+        }
+        return null
+    }
+
+    private fun initBiometricAuthentication(cryptoObject: CryptoObject?, authenticators: Int) {
+        val biometricPrompt = initBiometricPrompt(authenticators)
+        promptInfo?.let { promptInfo ->
+            activity.runOnUiThread {
+                cryptoObject?.let {
+                    biometricPrompt.authenticate(promptInfo, it)
+                } ?: biometricPrompt.authenticate(promptInfo)
+            }
+        }
     }
 
     private fun setServicesFromActivity(activity: FragmentActivity) {
         val context = activity.baseContext
         biometricManager = BiometricManager.from(activity)
         keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            fingerprintManager =
-                context.getSystemService(Context.FINGERPRINT_SERVICE) as FingerprintManager
-        }
+        fingerprintManager =
+            context.getSystemService(Context.FINGERPRINT_SERVICE) as FingerprintManager
     }
 
-    private fun initBiometricPrompt(): BiometricPrompt {
+    private fun initBiometricPrompt(authenticators: Int): BiometricPrompt {
         val executor = ContextCompat.getMainExecutor(activity)
         val biometricPrompt = biometricAuthListener?.let {
             BiometricPrompt(activity, executor, it)
@@ -171,59 +193,62 @@ class BiometricAuth @JvmOverloads constructor(
         val builder = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title ?: "Biometric Authentication for login")
             .setSubtitle(subtitle ?: "Log in using your biometric credential")
-        val authenticators: Int
-        if (allowDeviceCredentials) {
-            authenticators = if(authenticatorType == AuthenticatorType.WEAK) {
-                BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            } else {
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            }
-        } else {
-            authenticators = if(authenticatorType == AuthenticatorType.WEAK) {
-                BiometricManager.Authenticators.BIOMETRIC_WEAK
-            } else {
-                BiometricManager.Authenticators.BIOMETRIC_STRONG
-            }
+        if (!allowDeviceCredentials) {
             builder.setNegativeButtonText("Cancel")
         }
         description?.let {
             builder.setDescription(it)
         }
-       builder.setAllowedAuthenticators(authenticators)
+        builder.setAllowedAuthenticators(authenticators)
         promptInfo = builder.build()
         return biometricPrompt
     }
-
-    private fun hasBiometricCapability(): Boolean {
-        if (biometricManager == null) return false
-        val canAuthenticate =
-            biometricManager?.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
-        return canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
-    }
-
-    private fun initBiometricAuthentication() {
-        val biometricPrompt = initBiometricPrompt()
-        promptInfo?.let {
-            activity.runOnUiThread() {
-                biometricPrompt.authenticate(it)
-            }
-        }
-    }
-
-    private fun initDeviceCredentialAuthentication() {
-        DeviceCredentialFragment.launch(this)
-    }
-
     companion object {
         private val TAG = BiometricAuth::class.java.simpleName
+
+        @JvmStatic
+        fun isBiometricAvailable(applicationContext: Context): Boolean {
+            var canAuthenticate = true
+            if (Build.VERSION.SDK_INT < 28) {
+                val keyguardManager: KeyguardManager =
+                    applicationContext.getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+                val packageManager: PackageManager = applicationContext.packageManager
+                // Check if Fingerprint Sensor is supported
+                if (packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT).not()) {
+                    canAuthenticate = false
+                }
+                // Check if lock screen security is enabled in Settings
+                if (keyguardManager.isKeyguardSecure.not()) {
+                    canAuthenticate = false
+                }
+                // Check if Fingerprint Authentication Permission was granted
+                if (ContextCompat.checkSelfPermission(
+                        applicationContext,
+                        Manifest.permission.USE_FINGERPRINT
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    canAuthenticate = false
+                }
+            } else {
+                // Check if biometric is supported
+                val biometricManager: BiometricManager = BiometricManager.from(applicationContext)
+                if (biometricManager.canAuthenticate(BIOMETRIC_WEAK) != BiometricManager.BIOMETRIC_SUCCESS) {
+                    canAuthenticate = false
+                }
+                // Check if Fingerprint Authentication Permission was granted
+                if (ContextCompat.checkSelfPermission(
+                        applicationContext,
+                        Manifest.permission.USE_BIOMETRIC
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    canAuthenticate = false
+                }
+            }
+            return canAuthenticate
+        }
     }
 
     init {
         setServicesFromActivity(activity)
     }
-}
-
-enum class AuthenticatorType {
-    STRONG,
-    WEAK
 }

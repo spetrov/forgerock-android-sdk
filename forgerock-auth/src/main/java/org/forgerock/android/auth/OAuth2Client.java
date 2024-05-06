@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 - 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2019 - 2024 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -10,9 +10,9 @@ package org.forgerock.android.auth;
 import android.net.Uri;
 import android.util.Base64;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.forgerock.android.auth.exception.ApiException;
 import org.forgerock.android.auth.exception.AuthorizeException;
 import org.jetbrains.annotations.NotNull;
 
@@ -26,8 +26,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Map;
 
-import lombok.Getter;
-import lombok.NonNull;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.FormBody;
@@ -41,7 +39,6 @@ import static org.forgerock.android.auth.StringUtils.isNotEmpty;
 /**
  * Class to handle OAuth2 related endpoint
  */
-@Getter
 public class OAuth2Client {
 
     private static final String TAG = "OAuth2Client";
@@ -63,7 +60,6 @@ public class OAuth2Client {
     private String redirectUri;
     private String responseType = OAuth2.CODE;
 
-    @Getter
     private ServerConfig serverConfig;
     private OkHttpClient okHttpClient;
 
@@ -109,7 +105,7 @@ public class OAuth2Client {
                     .url(getAuthorizeUrl(token, pkce, state, additionalParameters))
                     .get()
                     .header(ACCEPT_API_VERSION, ServerConfig.API_VERSION_2_1)
-                    .header(serverConfig.getCookieName(), token.getValue() )
+                    .header(serverConfig.getCookieName(), token.getValue())
                     .tag(AUTHORIZE)
                     .build();
 
@@ -212,12 +208,25 @@ public class OAuth2Client {
      * @param listener    Listener to listen for revoke event
      */
     public void revoke(@NonNull AccessToken accessToken, final FRListener<Void> listener) {
+        revoke(accessToken, true, listener);
+    }
+
+    /**
+     * Revoke the AccessToken, to revoke the access token, first look for refresh token to revoke, if
+     * not provided or useRefreshToken = false, will revoke with the access token.
+     *
+     * @param accessToken     The AccessToken to be revoked
+     * @param useRefreshToken If true, revoke with refresh token, otherwise revoke access token
+     * @param listener        Listener to listen for revoke event
+     */
+    public void revoke(@NonNull AccessToken accessToken, boolean useRefreshToken, final FRListener<Void> listener) {
         Logger.debug(TAG, "Revoking Access Token & Refresh Token");
         final OAuth2ResponseHandler handler = new OAuth2ResponseHandler();
         try {
             FormBody.Builder builder = new FormBody.Builder();
 
-            String token = accessToken.getRefreshToken() == null ? accessToken.getValue() : accessToken.getRefreshToken();
+            String token = accessToken.getRefreshToken() == null || !useRefreshToken
+                    ? accessToken.getValue() : accessToken.getRefreshToken();
 
             RequestBody body = builder
                     .add(OAuth2.CLIENT_ID, clientId)
@@ -446,4 +455,23 @@ public class OAuth2Client {
         }
     }
 
+    String getClientId() {
+        return this.clientId;
+    }
+
+    String getScope() {
+        return this.scope;
+    }
+
+    String getRedirectUri() {
+        return this.redirectUri;
+    }
+
+    String getResponseType() {
+        return this.responseType;
+    }
+
+    ServerConfig getServerConfig() {
+        return this.serverConfig;
+    }
 }

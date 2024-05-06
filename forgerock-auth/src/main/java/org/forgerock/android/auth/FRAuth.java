@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 - 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2019 - 2023 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -10,13 +10,13 @@ package org.forgerock.android.auth;
 import android.content.Context;
 import android.net.Uri;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import lombok.Builder;
-import lombok.NonNull;
 import lombok.Singular;
 
 /**
@@ -47,6 +47,8 @@ public class FRAuth {
         if(!started || !FROptions.equals(cachedOptions, options)) {
             started = true;
             FROptions currentOptions = ConfigHelper.load(context, options);
+            //Validate (AM URL, Realm, CookieName) is not Empty. If its empty will throw IllegalArgumentException.
+            currentOptions.validateConfig();
             if (ConfigHelper.isConfigDifferentFromPersistedValue(context, currentOptions)) {
                SessionManager sessionManager = ConfigHelper.getPersistedConfig(context, cachedOptions).getSessionManager();
                sessionManager.close();

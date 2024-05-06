@@ -1,15 +1,70 @@
-##[4.0.0]
+## [4.4.0]
+#### Added
+- Added `TextInput` callback support [SDKS-545]
+- Added a new module for integration with `PingOne Protect` [SDKS-2900]
+- Added interface allowing developers to customize the biometric prompt for device binding\signing [SDKS-2991]
+- Added immutable HTTP headers on each request `x-requested-with: forgerock-sdk` and `x-requested-platform: android` [SDKS-3033]
+
+#### Fixed
+- Addressed `nimbus-jose-jwt:9.25` library security vulnerability (CVE-2023-52428) [SDKS-2988]
+- NullPointerException for Centralize Login, Replace deprecated onActivityResult with ActivityResultContract [SDKS-3079]
+
+## [4.3.1]
+#### Fixed
+- Fixed an issue where the SDK was crashing during device binding on Android 9 devices [SDKS-2948]
+
+## [4.3.0]
+#### Added
+- Added the ability to customize cookie headers in outgoing requests from the SDK [SDKS-2780]
+- Added the ability to insert custom claims when performing device signing verification [SDKS-2787]
+- Added client-side support for the `AppIntegrity` callback [SDKS-2631]
+
+#### Fixed
+- The SDK now uses `auth-per-use` keys for Device Binding [SDKS-2797]
+- Improved handling of WebAuthn cancellations [SDKS-2819]
+- Made `forgerock_url`, `forgerock_realm`, and `forgerock_cookie_name` params mandatory when dynamically configuring the SDK [SDKS-2782]
+- Addressed `woodstox-core:6.2.4` library security vulnerability (CVE-2022-40152) [SDKS-2751]
+
+## [4.2.0]
+#### Added
+- Gradle 8 and JDK 17 support  [SDKS-2451]
+- Android 14 support [SDKS-2636]
+- Key pair verification with key attestation during device binding enrollment [SDKS-2412]
+- Added `iat` and `nbf` claims in the Device Binding and Device Signed JWT [SDKS-2747]
+
+## [4.1.0]
+#### Added
+- Interceptor support for the Authenticator module [SDKS-2544]
+- Interface for access_token refresh [SDKS-2567]
+- Ability to process new JSON format of IG policy advice [SDKS-2240]
+
+#### Fixed
+- Fixed an issue on parsing `issuer` from combined MFA registration uri [SDKS-2542]
+- Added error message about duplicated accounts while performing combined MFA registration [SDKS-2627]
+- Fixed an issue related to "lost" WebAuthn credentials upon upgrade from 4.0.0-beta4 to newer version [SDKS-2576]
+
+## [4.0.0]
 #### Added
 - Upgrade Google Fido Client to support PassKey [SDKS-2243]
-- Introduce FRWebAuthn interface to remove WebAuthn Reference Keys [SDKS-2272]
+- FRWebAuthn interface to remove WebAuthn Reference Keys [SDKS-2272]
 - Interface to set Device Name during WebAuthn Registration [SDKS-2296]
 - `DeviceBinding` callback support [SDKS-1747]
 - `DeviceSigningVerifier` callback support [SDKS-2022]
+- Support for combined MFA in the Authenticator SDK [SDKS-2166]
+- Support for policy enforcement in the Authenticator SDK [SDKS-2166]
 
 #### Fixed
-- Removed `MANAGE_ACCOUNTS` permission from `forgerock-auth` [SDKS-1367]
-- Removed native SSO support (deprecated `sharedUserId` attribute) [SDKS-2260]
 - Fix for WebAuthn authentication for devices which use full screen biometric prompt [SDKS-2340]
+- Fixed functionality for NetworkCollector [SDKS-2445]
+
+#### Changed
+- `public void WebAuthnRegistrationCallback.register(Node node,FRListener<Void> listener)` to `suspend fun register(context: Context, node: Node)`
+- `public void WebAuthAuthenticationCallback.authenticate(@NonNull Fragment fragment, @NonNull Node node, @Nullable WebAuthnKeySelector selector, FRListener<Void> listener)` to `suspend fun authenticate(context: Context, node: Node, selector: WebAuthnKeySelector = WebAuthnKeySelector.DEFAULT)`
+- `FRAClient.updateAccount` now throws `AccountLockException` upon attempt to update a locked account [SDKS-2166]
+- `OathMechanism.getOathTokenCode()`, `HOTPMechanism.getOathTokenCode()` and `TOTPMechanism.getOathTokenCode()`  now throws `AccountLockException` upon attempt to get an OATH token for a locked account [SDKS-2166]
+
+#### Deprecated
+- Removed support for native single sign-on (SSO) [SDKS-2260], [SDKS-1367]
 
 ## [3.4.0]
 #### Added

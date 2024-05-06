@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2022 - 2023 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -42,16 +42,16 @@ class FRSessionActivity: AppCompatActivity(), NodeListener<FRSession>, ActivityL
         }
     }
 
-    override fun onSuccess(result: FRSession?) {
+    override fun onSuccess(result: FRSession) {
         getAccessToken()
     }
 
 
-    override fun onException(e: Exception?) {
+    override fun onException(e: Exception) {
       print("------> $e")
     }
 
-    override fun onCallbackReceived(node: Node?) {
+    override fun onCallbackReceived(node: Node) {
         nodeDialog?.dismiss()
         nodeDialog = NodeDialogFragment.newInstance(node)
         nodeDialog?.show(supportFragmentManager, NodeDialogFragment::class.java.name)
@@ -60,19 +60,17 @@ class FRSessionActivity: AppCompatActivity(), NodeListener<FRSession>, ActivityL
 
     private fun getAccessToken() {
         FRUser.getCurrentUser()?.getAccessToken(object : FRListener<AccessToken> {
-            override fun onSuccess(token: AccessToken?) {
+            override fun onSuccess(token: AccessToken) {
                 runOnUiThread {
                     loginButton.visibility = View.GONE
                     logoutButton.visibility = View.GONE
                     status.visibility = View.GONE
-                    token?.let {
-                        launchUserInfoFragment(token)
-                    }
+                    launchUserInfoFragment(token)
                 }
             }
 
-            override fun onException(e: Exception?) {
-                Logger.error(classNameTag, e?.message)
+            override fun onException(e: Exception) {
+                Logger.error(classNameTag, e.message)
             }
 
         })

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 - 2022 ForgeRock. All rights reserved.
+ * Copyright (c) 2019 - 2023 ForgeRock. All rights reserved.
  *
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -180,7 +180,7 @@ class DefaultTokenManagerTest : BaseTest() {
         tokenManager.persist(accessToken)
         val storedAccessToken1 = getAccessToken(tokenManager)
 
-        counDownLatch.await(200L, TimeUnit.MILLISECONDS)
+        Thread.sleep(200L)
         counDownLatch.countDown()
 
         val storedAccessToken2 = getAccessToken(tokenManager)
@@ -266,6 +266,8 @@ class DefaultTokenManagerTest : BaseTest() {
     @Test
     @Throws(Throwable::class)
     fun testTokenRefreshWithThreshold() {
+        //asyn revoke call
+        enqueue("/authenticate_refreshToken.json", HttpURLConnection.HTTP_OK)
         enqueue("/authenticate_refreshToken.json", HttpURLConnection.HTTP_OK)
         val oAuth2Client = OAuth2Client.builder()
             .clientId("andy_app")
