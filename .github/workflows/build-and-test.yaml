@@ -62,13 +62,27 @@ jobs:
           fail-on-error: 'true'
           reporter: java-junit
 
-      # Upload coverage reports to Codecov
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.0.1
+      # Execute forgerock-core release unit tests with coverage report
+      - name: Add test coverage report to PR
+        id: jacoco
+        uses: madrapps/jacoco-report@v1.6.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: forgerock-core/build/coverage-report/test-coverage.xml, forgerock-auth/build/coverage-report/test-coverage.xml, forgerock-authenticator/build/coverage-report/test-coverage.xml, ping-protect/build/coverage-report/test-coverage.xml
-          flags: unit-tests
+          paths: |
+            forgerock-core/build/coverage-report/test-coverage.xml,
+            forgerock-auth/build/coverage-report/test-coverage.xml,
+            ping-protect/build/coverage-report/test-coverage.xml
+            forgerock-authenticator/build/coverage-report/test-coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 40
+          min-coverage-changed-files: 60
+
+#      # Upload coverage reports to Codecov
+#      - name: Upload coverage reports to Codecov
+#        uses: codecov/codecov-action@v4.0.1
+#        with:
+#          token: ${{ secrets.CODECOV_TOKEN }}
+#          files: forgerock-core/build/coverage-report/test-coverage.xml, forgerock-auth/build/coverage-report/test-coverage.xml, forgerock-authenticator/build/coverage-report/test-coverage.xml, ping-protect/build/coverage-report/test-coverage.xml
+#          flags: unit-tests
 
       # Send slack notification with result status
       - uses: 8398a7/action-slack@v3
