@@ -6,7 +6,7 @@
   <a href="https://github.com/ForgeRock">
     <img src="https://www.forgerock.com/themes/custom/forgerock/images/fr-logo-horz-color.svg" alt="Logo">
   </a>
-  <h2 align="center">ForgeRock SDK for Android</h2>
+  <h2 align="center">ForgeRock SDK for Android - update</h2>
   <p align="center">
     <a href="CHANGELOG.md">Change Log</a>
     ·
